@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Episode;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class EpisodesController extends Controller
 {
@@ -35,6 +36,22 @@ class EpisodesController extends Controller
         return response()->json($episode, 200);
     }
 
+    public function storeEpisode(Request $request)
+    {
+        $file = $request->validate([
+            'file'  =>  'required|file|mimes:mpeg,mp4,wav|max:200000'
+        ]);
+
+        $file = $request->file('file');
+    
+        $path = Storage::disk('episodes')->putFile('episodes', $file, 'public');
+        $url = Storage::disk('episodes')->url($path);
+
+        return response()->json([
+            "url" => $url,
+        ], 200);
+    }
+
     /**
      * Display the specified resource.
      *
@@ -64,7 +81,7 @@ class EpisodesController extends Controller
         //     'created_at' => '',
         // ]);
 
-        $episode->update($request->all());
+        $episode->update($request->only(['download_url', 'title', 'description', 'episode_number']));
 
         return response()->json($episode, 200);
     }

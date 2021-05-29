@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 use App\Models\Episode;
@@ -28,7 +30,7 @@ class EpisodeIntegrationTest extends TestCase
             'episode_number' => 10,
         ];
 
-        $response = $this->json('POST', '/api/episodes', $episode);
+        $response = $this->postJson('/api/episodes', $episode);
 
         $response->assertOk();
         $this->assertDatabaseHas('episodes', $episode);
@@ -42,7 +44,7 @@ class EpisodeIntegrationTest extends TestCase
 
         Episode::factory()->count($amountOfEpisodesToGenerate)->create();
 
-        $response = $this->json('GET', '/api/episodes');
+        $response = $this->getJson('/api/episodes');
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -64,7 +66,7 @@ class EpisodeIntegrationTest extends TestCase
             'title' => 'New value',
         ];
 
-        $response = $this->json('PUT', '/api/episodes/'.$episode->id, $payload);
+        $response = $this->putJson('/api/episodes/'.$episode->id, $payload);
 
         $response->assertStatus(200);
 
@@ -80,10 +82,65 @@ class EpisodeIntegrationTest extends TestCase
 
         $episode = Episode::factory()->create();
 
-        $response = $this->json('DELETE', '/api/episodes/'.$episode->id);
+        $response = $this->deleteJson('/api/episodes/'.$episode->id);
 
         $response->assertStatus(204);
 
         $this->assertDeleted($episode);
+    }
+
+    public function testEpisodesAreUploadable()
+    {
+        $this->withoutExceptionHandling();
+
+        Storage::fake('episodes');
+
+        $file = UploadedFile::fake()->create('episode1.wav', 100);
+
+        $response = $this->post('/api/episodes/upload', [
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(200);
+
+        $path = 'episodes/'.$file->hashName();
+
+        Storage::disk('episodes')->assertExists($path);
+
+        $this->assertFileEquals($file, Storage::disk('episodes')->path($path));
+    }
+
+    public function testEpisodesUploadedAreNotTooLarge()
+    {
+        Storage::fake('episodes');
+
+        $file = UploadedFile::fake()->create('episode1.wav', 10000000);
+
+        $response = $this->post('/api/episodes/upload', [
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(302);
+
+        $path = 'episodes/'.$file->hashName();
+
+        Storage::disk('episodes')->assertMissing($path);
+    }
+
+    public function testWeCannotUploadNonAudioFiles()
+    {
+        Storage::fake('episodes');
+
+        $file = UploadedFile::fake()->create('episode1.pdf', 100);
+
+        $response = $this->post('/api/episodes/upload', [
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(302);
+
+        $path = 'episodes/'.$file->hashName();
+
+        Storage::disk('episodes')->assertMissing($path);
     }
 }

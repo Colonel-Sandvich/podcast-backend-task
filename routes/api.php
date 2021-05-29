@@ -21,4 +21,5 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
 
+Route::post('episodes/upload', [EpisodesController::class, 'storeEpisode']);
 Route::apiResource('episodes', EpisodesController::class);
