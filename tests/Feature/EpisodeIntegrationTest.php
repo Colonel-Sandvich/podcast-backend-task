@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -23,20 +22,91 @@ class EpisodeIntegrationTest extends TestCase
     {
         $this->withoutExceptionHandling();
 
-        $episode = [
-            'download_url' => 'http://foo',
-            'title' => 'Title foo',
-            'description' => 'Foo bar went to the food bar',
-            'episode_number' => 10,
-        ];
+        $episode = $this->metaData();
 
         $response = $this->postJson('/api/episodes', $episode);
 
-        $response->assertOk();
+        $response->assertCreated();
         $this->assertDatabaseHas('episodes', $episode);
     }
 
-    public function testEpisodesAreListable()
+    public function testEpisodesAreNotCreatedIfInvalidUrl()
+    {
+        $episode = array_merge($this->metaData(), [
+            'download_url' => "I'm not a URL!"
+        ]);
+
+        $response = $this->postJson('/api/episodes', $episode);
+
+        $response->assertStatus(422)
+        ->assertJsonStructure([
+            'message',
+            'errors' => [
+                'download_url'
+            ]
+        ]);
+        
+        $this->assertDatabaseMissing('episodes', $episode);
+    }
+
+    public function testEpisodesAreNotCreatedIfTitleIsTooLong()
+    {
+        $episode = array_merge($this->metaData(), [
+            'title' => str_repeat('A',256)
+        ]);
+
+        $response = $this->postJson('/api/episodes', $episode);
+
+        $response->assertStatus(422)
+        ->assertJsonStructure([
+            'message',
+            'errors' => [
+                'title'
+            ]
+        ]);
+
+        $this->assertDatabaseMissing('episodes', $episode);
+    }
+
+    public function testEpisodesAreNotCreatedIfDescriptionIsTooLong()
+    {
+        $episode = array_merge($this->metaData(), [
+            'description' => str_repeat('A',5001)
+        ]);
+
+        $response = $this->postJson('/api/episodes', $episode);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'description'
+                ]
+            ]);
+
+        $this->assertDatabaseMissing('episodes', $episode);
+    }
+
+    public function testEpisodesAreNotCreatedIfInvalidEpisodeNumber()
+    {
+        $episode = array_merge($this->metaData(), [
+            'episode_number' => "I am not a number"
+        ]);
+
+        $response = $this->postJson('/api/episodes', $episode);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'episode_number'
+                ]
+            ]);
+
+        $this->assertDatabaseMissing('episodes', $episode);
+    }
+
+    public function testEpisodesAreListed()
     {
         $this->withoutExceptionHandling();
 
@@ -89,7 +159,7 @@ class EpisodeIntegrationTest extends TestCase
         $this->assertDeleted($episode);
     }
 
-    public function testEpisodesAreUploadable()
+    public function testEpisodesAreUploaded()
     {
         $this->withoutExceptionHandling();
 
@@ -101,13 +171,13 @@ class EpisodeIntegrationTest extends TestCase
             'file' => $file,
         ]);
 
-        $response->assertStatus(200);
+        $response->assertCreated();
 
         $path = 'episodes/'.$file->hashName();
 
-        Storage::disk('episodes')->assertExists($path);
+        Storage::assertExists($path);
 
-        $this->assertFileEquals($file, Storage::disk('episodes')->path($path));
+        $this->assertFileEquals($file, Storage::path($path));
     }
 
     public function testEpisodesUploadedAreNotTooLarge()
@@ -124,10 +194,10 @@ class EpisodeIntegrationTest extends TestCase
 
         $path = 'episodes/'.$file->hashName();
 
-        Storage::disk('episodes')->assertMissing($path);
+        Storage::assertMissing($path);
     }
 
-    public function testWeCannotUploadNonAudioFiles()
+    public function testEpisodesUploadedAreAudioFiles()
     {
         Storage::fake('episodes');
 
@@ -141,6 +211,18 @@ class EpisodeIntegrationTest extends TestCase
 
         $path = 'episodes/'.$file->hashName();
 
-        Storage::disk('episodes')->assertMissing($path);
+        Storage::assertMissing($path);
+    }
+
+    private function metaData()
+    {
+        return $episode = [
+            'download_url' => 'http://foo',
+            'title' => 'Title foo',
+            'description' => 'Foo bar went to the food bar',
+            'episode_number' => 10,
+        ];
+
+        // Clean meta data array that can be overridden with array_merge to make invalid data tests
     }
 }
