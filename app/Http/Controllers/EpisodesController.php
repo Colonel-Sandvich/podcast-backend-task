@@ -26,14 +26,14 @@ class EpisodesController extends Controller
      */
     public function store(Request $request)
     {
-        $episode = Episode::create([
-            'download_url' => request('download_url'),
-            'title' => request('title'),
-            'description' => request('description'),
-            'episode_number' => request('episode_number')
+        $data = $request->validate([
+            'download_url' => 'required|url',
+            'title' => 'required|max:255',
+            'description' => 'required|max:5000',
+            'episode_number' => 'required|integer',
         ]);
 
-        return response()->json($episode, 200);
+        return Episode::create($data);
     }
 
     public function storeEpisode(Request $request)
@@ -44,12 +44,12 @@ class EpisodesController extends Controller
 
         $file = $request->file('file');
     
-        $path = Storage::disk('episodes')->putFile('episodes', $file, 'public');
-        $url = Storage::disk('episodes')->url($path);
+        $path = Storage::putFile('episodes', $file, 'public');
+        $url = Storage::url($path);
 
         return response()->json([
             "url" => $url,
-        ], 200);
+        ], 201);
     }
 
     /**
@@ -72,18 +72,16 @@ class EpisodesController extends Controller
      */
     public function update(Request $request, Episode $episode)
     {
-        // $data = $request->validate([
-        //     'download_url' => 'url',
-        //     'title' => 'required',
-        //     'description' => 'required',
-        //     'episode_number' => 'required',
-        //     'updated_at' => '',
-        //     'created_at' => '',
-        // ]);
+        $data = $request->validate([
+            'download_url' => 'url',
+            'title' => 'max:255',
+            'description' => 'max:5000',
+            'episode_number' => 'integer',
+        ]);
 
-        $episode->update($request->only(['download_url', 'title', 'description', 'episode_number']));
+        $episode->update($data);
 
-        return response()->json($episode, 200);
+        return response()->json($episode->fresh(), 200);
     }
 
     /**
