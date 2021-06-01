@@ -13,11 +13,6 @@ class EpisodeIntegrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Test the ability to create and store episodes.
-     *
-     * @return void
-     */
     public function testEpisodesAreCreated()
     {
         $this->withoutExceptionHandling();
@@ -39,12 +34,12 @@ class EpisodeIntegrationTest extends TestCase
         $response = $this->postJson('/api/episodes', $episode);
 
         $response->assertStatus(422)
-        ->assertJsonStructure([
-            'message',
-            'errors' => [
-                'download_url'
-            ]
-        ]);
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'download_url'
+                ]
+            ]);
         
         $this->assertDatabaseMissing('episodes', $episode);
     }
@@ -58,12 +53,12 @@ class EpisodeIntegrationTest extends TestCase
         $response = $this->postJson('/api/episodes', $episode);
 
         $response->assertStatus(422)
-        ->assertJsonStructure([
-            'message',
-            'errors' => [
-                'title'
-            ]
-        ]);
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'title'
+                ]
+            ]);
 
         $this->assertDatabaseMissing('episodes', $episode);
     }
@@ -138,12 +133,100 @@ class EpisodeIntegrationTest extends TestCase
 
         $response = $this->putJson('/api/episodes/'.$episode->id, $payload);
 
-        $response->assertStatus(200);
+        $response->assertOk();
 
         $this->assertDatabaseHas('episodes', [
             'id' => $episode->id,
             'title' => $payload['title'],
         ]);
+    }
+
+    public function testEpisodesAreNotUpdatedIfInvalidUrl()
+    {
+        $old_episode = Episode::factory()->create();
+
+        $episode = array_merge($this->metaData(), [
+            'download_url' => "I'm not a URL!"
+        ]);
+
+        $response = $this->putJson('/api/episodes/'.$old_episode->id, $episode);
+        
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'download_url'
+                ]
+            ]);
+
+        $this->assertDatabaseMissing('episodes', $episode);
+        $this->assertFalse($old_episode->wasChanged('download_url'));
+    }
+
+    public function testEpisodesAreNotUpdatedIfTitleIsTooLong()
+    {
+        $old_episode = Episode::factory()->create();
+
+        $episode = array_merge($this->metaData(), [
+            'title' => str_repeat('A',256)
+        ]);
+
+        $response = $this->putJson('/api/episodes/'.$old_episode->id, $episode);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'title'
+                ]
+            ]);
+
+        $this->assertDatabaseMissing('episodes', $episode);
+        $this->assertFalse($old_episode->wasChanged('title'));
+    }
+
+    public function testEpisodesAreNotUpdatedIfDescriptionIsTooLong()
+    {
+        $old_episode = Episode::factory()->create();
+
+        $episode = array_merge($this->metaData(), [
+            'description' => str_repeat('A',5001)
+        ]);
+
+        $response = $this->putJson('/api/episodes/'.$old_episode->id, $episode);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'description'
+                ]
+            ]);
+
+        $this->assertDatabaseMissing('episodes', $episode);
+        $this->assertFalse($old_episode->wasChanged('description'));
+    }
+
+    public function testEpisodesAreNotUpdatedIfInvalidEpisodeNumber()
+    {
+        $old_episode = Episode::factory()->create();
+
+        $episode = array_merge($this->metaData(), [
+            'episode_number' => "I am not a number"
+        ]);
+
+        $response = $this->putJson('/api/episodes/'.$old_episode->id, $episode);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'episode_number'
+                ]
+            ]);
+
+        $this->assertDatabaseMissing('episodes', $episode);
+        $this->assertFalse($old_episode->wasChanged('episode_number'));
     }
 
     public function testEpisodesAreDeleted()
@@ -154,7 +237,7 @@ class EpisodeIntegrationTest extends TestCase
 
         $response = $this->deleteJson('/api/episodes/'.$episode->id);
 
-        $response->assertStatus(204);
+        $response->assertNoContent();
 
         $this->assertDeleted($episode);
     }
@@ -171,7 +254,10 @@ class EpisodeIntegrationTest extends TestCase
             'file' => $file,
         ]);
 
-        $response->assertCreated();
+        $response->assertCreated()
+            ->assertJsonStructure([
+                'url'
+            ]);
 
         $path = 'episodes/'.$file->hashName();
 
@@ -186,11 +272,17 @@ class EpisodeIntegrationTest extends TestCase
 
         $file = UploadedFile::fake()->create('episode1.wav', 10000000);
 
-        $response = $this->post('/api/episodes/upload', [
+        $response = $this->postJson('/api/episodes/upload', [
             'file' => $file,
         ]);
 
-        $response->assertStatus(302);
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'file'
+                ]
+            ]);
 
         $path = 'episodes/'.$file->hashName();
 
@@ -203,11 +295,17 @@ class EpisodeIntegrationTest extends TestCase
 
         $file = UploadedFile::fake()->create('episode1.pdf', 100);
 
-        $response = $this->post('/api/episodes/upload', [
+        $response = $this->postJson('/api/episodes/upload', [
             'file' => $file,
         ]);
 
-        $response->assertStatus(302);
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'file'
+                ]
+            ]);
 
         $path = 'episodes/'.$file->hashName();
 

@@ -15,7 +15,7 @@ class EpisodesController extends Controller
      */
     public function index()
     {
-        return response()->json(Episode::all(), 200);
+        return Episode::all();
     }
 
     /**
@@ -36,6 +36,12 @@ class EpisodesController extends Controller
         return Episode::create($data);
     }
 
+    /**
+     * Store an uploaded audio file in file storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
     public function storeEpisode(Request $request)
     {
         $file = $request->validate([
@@ -60,7 +66,7 @@ class EpisodesController extends Controller
      */
     public function show(Episode $episode)
     {
-        return response()->json($episode, 200);
+        return $episode;
     }
 
     /**
@@ -81,7 +87,7 @@ class EpisodesController extends Controller
 
         $episode->update($data);
 
-        return response()->json($episode->fresh(), 200);
+        return $episode->fresh();
     }
 
     /**
@@ -94,6 +100,6 @@ class EpisodesController extends Controller
     {
         $episode->delete();
 
-        return response()->json(null, 204);
+        return response()->noContent();
     }
 }
