@@ -98,6 +98,10 @@ class EpisodesController extends Controller
      */
     public function destroy(Episode $episode)
     {
+        $url = $episode->download_url;
+        $path = parse_url($url)['path'];
+        Storage::delete($path); // Delete the associated podcast episode on DigitalOcean Spaces
+
         $episode->delete();
 
         return response()->noContent();

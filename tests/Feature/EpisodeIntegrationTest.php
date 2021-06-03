@@ -229,9 +229,31 @@ class EpisodeIntegrationTest extends TestCase
         $this->assertFalse($old_episode->wasChanged('episode_number'));
     }
 
-    public function testEpisodesAreDeleted()
+    public function testEpisodesAreDeletedAndFileAssociatedIsDeleted()
     {
         $this->withoutExceptionHandling();
+        Storage::fake('episodes');
+
+        $file = UploadedFile::fake()->create('episode1.wav', 100);
+        $path = Storage::putFile('episodes', $file, 'public');
+        Storage::assertExists($path);
+
+        $episode = Episode::factory()->create([
+            'download_url' => $path
+        ]);
+
+        $response = $this->deleteJson('/api/episodes/'.$episode->id);
+
+        $response->assertNoContent();
+
+        $this->assertDeleted($episode);
+        Storage::assertMissing($path);
+    }
+
+    public function testEpisodesAreDeletedInvalidDownloadUrl()
+    {
+        $this->withoutExceptionHandling();
+        Storage::fake('episodes');
 
         $episode = Episode::factory()->create();
 
